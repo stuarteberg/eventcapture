@@ -1,6 +1,10 @@
 from PyQt4.QtCore import Qt
 from PyQt4.QtGui import QApplication, QWidget, QMainWindow, QMenu, QGroupBox, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton
 
+# Make the program quit on Ctrl+C
+import signal
+signal.signal(signal.SIGINT, signal.SIG_DFL)
+
 class DemoAppMainWindow( QMainWindow ):
     """
     A silly little app to say hello.
@@ -73,6 +77,7 @@ if __name__ == "__main__":
     
     if len(sys.argv) == 2 and sys.argv[1] == '--record':
         mode = 'record'
+        playback_script = None
     elif len(sys.argv) == 3 and sys.argv[1] == '--playback':
         mode = 'playback'
         playback_script = sys.argv[2]
@@ -84,7 +89,7 @@ if __name__ == "__main__":
         # When using eventcapture for recording or playback, 
         #  our app must be created by EventRecordingApp.create_app()
         from eventcapture.eventRecordingApp import EventRecordingApp
-        app = EventRecordingApp.create_app(mode, playback_script, 1.0, None, None, [])
+        app = EventRecordingApp.create_app( mode, playback_script, 1.0, None, None, qapp_args=([],) )
     else:
         # Start the app without eventcapture support
         app = QApplication([])
