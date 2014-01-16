@@ -176,13 +176,19 @@ class EventRecorder( QObject ):
                 and int(event.button()) == 0 \
                 and int(event.buttons()) == 0 \
                 and int(event.modifiers()) == 0:
+
+                # If mouse tracking is enabled for this widget, 
+                #  then we'll assume mouse movements are important to it.
+                widgetUnderCursor = QApplication.instance().widgetAt( QCursor.pos() )
+                if widgetUnderCursor.hasMouseTracking():
+                    return True
+
                 # Somewhat hackish (and slow), but we have to record mouse movements during combo box usage.
                 # Same for QMenu usage (on Mac, it doesn't seem to matter, but on Fedora it does matter.)
-                widgetUnderCursor = QApplication.instance().widgetAt( QCursor.pos() )
                 if widgetUnderCursor is not None and widgetUnderCursor.objectName() == "qt_scrollarea_viewport":
                     return has_ancestor(widgetUnderCursor, QComboBox)
                 if isinstance(widgetUnderCursor, QMenu):
-                    return True 
+                    return True
                 return False
             else:
                 return True
