@@ -69,18 +69,17 @@ class EventRecordingApp(QApplication):
                    playback_speed=1.0,
                    comment_display=None,
                    finish_callback=None,
-                   *args, **kwargs):
+                   qapp_args=([],)):
         """
         Create the application.
 
         mode: must be either 'record' or 'playback'.
         playback_script: Path to a previously recorded playback script.  Used only if mode='playback'
         playback_speed, comment_display, finish_callback: See EventPlayer and EventPlayer.play_script()
-
-        All other args/kwargs are passed directly to the QApplication constructor.
+        qapp_args: The list of arguments to provide to the QApplication constructor.
         """
         QApplication.setAttribute(Qt.AA_DontUseNativeMenuBar, True)
-        app = cls(*args, **kwargs)
+        app = cls(*qapp_args)
 
         if mode == 'record':
             app.recorder_control_window.openInPausedState()
