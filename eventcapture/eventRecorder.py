@@ -180,7 +180,7 @@ class EventRecorder( QObject ):
                 # If mouse tracking is enabled for this widget, 
                 #  then we'll assume mouse movements are important to it.
                 widgetUnderCursor = QApplication.instance().widgetAt( QCursor.pos() )
-                if widgetUnderCursor.hasMouseTracking():
+                if widgetUnderCursor is not None and widgetUnderCursor.hasMouseTracking():
                     return True
 
                 # Somewhat hackish (and slow), but we have to record mouse movements during combo box usage.
