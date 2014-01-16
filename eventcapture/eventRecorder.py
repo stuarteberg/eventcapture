@@ -111,6 +111,8 @@ class EventPlayer(object):
         print "--------------------------------------------------"
 
 def has_ancestor(obj, object_type):
+    # Must call QObject.parent this way because obj.parent() is *shadowed* in 
+    #  some subclasses (e.g. QModelIndex), which really is very ugly on Qt's part.
     parent = QObject.parent( obj )
     if parent is None:
         return False

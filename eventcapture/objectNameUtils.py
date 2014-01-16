@@ -73,9 +73,14 @@ def assign_unique_child_index( child ):
     """
     Assign a unique 'child index' to this child AND all its siblings of the same type.
     """
+    # Must call QObject.parent this way because obj.parent() is *shadowed* in 
+    #  some subclasses (e.g. QModelIndex), which really is very ugly on Qt's part.
     parent = QObject.parent(child)
     # Find all siblings of matching type
-    matching_siblings = filter( lambda c:type(c) == type(child), parent.children() )
+    if parent is not None:
+        matching_siblings = filter( lambda c:type(c) == type(child), parent.children() )
+    else:
+        matching_siblings = filter( lambda c:type(c) == type(child), QApplication.topLevelWidgets() )
     existing_indexes = set()
     for sibling in matching_siblings:
         if hasattr(sibling, 'unique_child_index'):
@@ -90,33 +95,26 @@ def assign_unique_child_index( child ):
             existing_indexes.add( next_available_index )
 
 def _assign_default_object_name( obj ):
-    # Must call QObject.parent this way because obj.parent() is *shadowed* in 
-    #  some subclasses (e.g. QModelIndex), which really is very ugly on Qt's part.
-    parent = QObject.parent(obj)
-    if parent is None:
-        # We just name the object after it's type and hope for the best.
-        obj.setObjectName( obj.__class__.__name__ )
-    else:
-        if not hasattr(obj, 'unique_child_index'):
-            assign_unique_child_index(obj)
-        
-        newname = '{}_{}'.format( obj.__class__.__name__, obj.unique_child_index )
-        obj.setObjectName( newname )
+    if not hasattr(obj, 'unique_child_index'):
+        assign_unique_child_index(obj)
+    
+    newname = '{}_{}'.format( obj.__class__.__name__, obj.unique_child_index )
+    obj.setObjectName( newname )
 
 def _has_unique_name(obj):
+    if obj.objectName() == '':
+        return False
     # Must call QObject.parent this way because obj.parent() is *shadowed* in 
     #  some subclasses (e.g. QModelIndex), which really is very ugly on Qt's part.
     parent = QObject.parent(obj)
     if parent is None:
-        return True # We assume that top-level widgets are uniquely named
-                    # Note that 'garbage' widgets may have parent=None as well.  
-                    # In that case, we don't care about their names, AS LONG AS THEY AREN"T TOP-LEVEL.
+        siblings = QApplication.topLevelWidgets()
+    else:
+        siblings = parent.children()        
     obj_name = obj.objectName()
-    for child in parent.children():
+    for child in siblings:
         if child is not obj and child.objectName() == obj_name:
-            # If the conflicting child is hidden, it doesn't count as a real conflict.
-            if isinstance(child, QWidget) and child.isVisible():
-                return False
+            return False
     return True
 
 def _normalize_child_names(parent):
@@ -124,8 +122,13 @@ def _normalize_child_names(parent):
     Make sure no two children of parent have the same name.
     If two children have the same name, only rename the second one.
     """
+    if parent is None:
+        children = QApplication.topLevelWidgets()
+    else:
+        children = parent.children()
+        
     existing_names = set()
-    for child in parent.children():
+    for child in children:
         if child.objectName() in existing_names:
             assert child.objectName() != "startupPage"
             _assign_default_object_name(child)
