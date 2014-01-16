@@ -1,1 +1,11 @@
 A library for monitoring application-wide events in pyqt and playing them back for testing purposes.
+
+Try the example to get a feel for it:
+
+$ cd examples
+$ PYTHONPATH=.. python demo_app.py --record
+# Do some stuff in the app
+# Then use the recording window to save a recording script.
+# Then quit.
+# If you saved the recording to e.g. /tmp/demo_recording.py, then try this:
+$ PYTHONPATH=.. python demo_app.py --playback /tmp/demo_recording.py
