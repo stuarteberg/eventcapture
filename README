@@ -14,8 +14,12 @@ Documentation TODO:
 - top-level widgets must be given unique names
 - children without unique names will be forcibly renamed
 - All objects must accept a new attribute called unique_child_index
+- model/view list widgets, etc. *must* use persistent editors to be recorded correctly.  Non-persistent editors cannot be used with this system.
 
 Implementation gotchas TODO:
 - top-level widgets that are closed may not be deleted immediately, and therefore are included when calling QApplication.topLevelWidgets().  For that reason, only visible top-level widgets receive events.  Shouldn't be a big deal, but could conceivably be a problem in special scenarios
 - Talk about how events are shoveled into the main thread
-- 
+- Decide which mouse events to save, which to ignore, and when to ignore "object not found" errors during playback.
+- Explain difference between spontaneous events and non-spontaneous.
+- Explain the importance of providing both relative and GLOBAL mouse coordinates for QMouseEvents
+- Explain why we have to use a QApplication subclass instead of merely adding an eventFilter to the app.
