@@ -9,3 +9,13 @@ $ PYTHONPATH=.. python demo_app.py --record
 # Then quit.
 # If you saved the recording to e.g. /tmp/demo_recording.py, then try this:
 $ PYTHONPATH=.. python demo_app.py --playback /tmp/demo_recording.py
+
+Documentation TODO:
+- top-level widgets must be given unique names
+- children without unique names will be forcibly renamed
+- All objects must accept a new attribute called unique_child_index
+
+Implementation gotchas TODO:
+- top-level widgets that are closed may not be deleted immediately, and therefore are included when calling QApplication.topLevelWidgets().  For that reason, only visible top-level widgets receive events.  Shouldn't be a big deal, but could conceivably be a problem in special scenarios
+- Talk about how events are shoveled into the main thread
+- 
