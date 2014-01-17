@@ -2,7 +2,7 @@ from PyQt4.QtCore import pyqtSignal
 from PyQt4.QtCore import Qt, QObject, QEvent, QChildEvent, QTimerEvent
 from PyQt4.QtGui import QApplication, QMouseEvent, QGraphicsSceneMouseEvent, QWindowStateChangeEvent, QMoveEvent, QCursor, QComboBox, QMenu
 
-from objectNameUtils import get_fully_qualified_name
+from objectNameUtils import get_fully_qualified_name, get_named_object, NamedObjectNotFoundError
 from eventSerializers import event_to_string
 from eventTypeNames import EventTypes
 
@@ -84,7 +84,25 @@ class EventPlayer(object):
         th.daemon = True
         th.start()
     
-    def post_event(self, obj, event, timestamp_in_seconds):
+    def post_event(self, obj_name, event, timestamp_in_seconds):
+        try:
+            # Locate the receiver object.
+            obj = get_named_object(obj_name)
+        except NamedObjectNotFoundError:
+            # If the object couldn't be found, check to see if this smells 
+            # like a silly mouse-move event that was sent after a window closed.
+            if event.type() == QEvent.MouseMove \
+                and int(event.button()) == 0 \
+                and int(event.buttons()) == 0 \
+                and int(event.modifiers()) == 0:
+                # Just proceed. We shouldn't raise an exception just because we failed to 
+                # deliver a pointless mouse-movement to a widget that doesn't exist anymore.
+                return
+            else:
+                # This isn't a plain mouse-move.
+                # It was probably important, and something went wrong.
+                raise
+        
         if self._playback_speed is not None:
             self._timer.sleep_until(timestamp_in_seconds / self._playback_speed)
         assert threading.current_thread().name != "MainThread"
@@ -237,8 +255,6 @@ def playback_events(player):
     import PyQt4.QtCore
     from PyQt4.QtCore import Qt, QEvent, QPoint
     import PyQt4.QtGui
-    from eventcapture.objectNameUtils import get_named_object
-    from eventcapture.eventRecorder import EventPlayer
     
     # The getMainWindow() function is provided by EventRecorderApp
     mainwin = PyQt4.QtGui.QApplication.instance().getMainWindow()
@@ -262,8 +278,8 @@ def playback_events(player):
             else:
                 fileobj.write(
 """
-    obj = get_named_object( '{objname}' )
-    player.post_event( obj,  {eventstr}, {timestamp_in_seconds} )
+    event = {eventstr}
+    player.post_event( '{objname}', event , {timestamp_in_seconds} )
 """.format( **locals() )
 )
         fileobj.write(
