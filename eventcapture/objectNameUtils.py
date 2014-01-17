@@ -1,5 +1,6 @@
 import time
 
+import sip
 from PyQt4.QtCore import QObject
 from PyQt4.QtGui import QApplication, QWidget
 
@@ -52,7 +53,7 @@ def get_named_object(full_name, timeout=10.0):
         # We couldn't find the child.
         # To give a better error message, find the deepest object that COULD be found
         names = full_name.split('.')
-        for i in range(len(names)):
+        for i in range(len(names)-1):
             ancestor_name = ".".join( names[:-i-1] )
             obj = _locate_descendent(None, ancestor_name)
             if obj is not None:
@@ -109,6 +110,7 @@ def _has_unique_name(obj):
     parent = QObject.parent(obj)
     if parent is None:
         siblings = QApplication.topLevelWidgets()
+        siblings = filter(QWidget.isVisible, siblings)
     else:
         siblings = parent.children()        
     obj_name = obj.objectName()
@@ -123,20 +125,30 @@ def _normalize_child_names(parent):
     If two children have the same name, only rename the second one.
     """
     if parent is None:
-        children = QApplication.topLevelWidgets()
+        # For top-level widgets, we can't 'normalize' the names because we can't count on 
+        #  QApplication.topLevelWidgets() to return a consistent order (I think)
+        # Instead of normalizing widget names, we'll check for problems.
+        toplevel_widgets = QApplication.topLevelWidgets()
+        toplevel_widgets = filter( QWidget.isVisible, toplevel_widgets )
+        existing_names = set()
+        for child in toplevel_widgets:
+            assert child.objectName() not in existing_names, \
+                "Top-level widgets (i.e. widgets without a parent) MUST have unique names.  "\
+                "I found multiple top-level widgets named '{}'".format( child.objectName() )
     else:
-        children = parent.children()
-        
-    existing_names = set()
-    for child in children:
-        if child.objectName() in existing_names:
-            assert child.objectName() != "startupPage"
-            _assign_default_object_name(child)
-        existing_names.add( child.objectName() )
+        children = parent.children()        
+        existing_names = set()
+        for child in children:
+            if child.objectName() in existing_names:
+                _assign_default_object_name(child)
+            existing_names.add( child.objectName() )
 
 def _locate_immediate_child(parent, childname):
     if parent is None:
+        assert childname != "", "top-level widgets must have names!"
         siblings = QApplication.topLevelWidgets()
+        siblings = filter(lambda w: not sip.isdeleted(w), siblings)
+        siblings = filter(QWidget.isVisible, siblings)
     else:
         siblings = parent.children()
         # Only consider visible children (or non-widgets)
