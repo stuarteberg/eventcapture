@@ -9,7 +9,7 @@ from eventTypeNames import EventTypes
 from timer import Timer
 
 import functools
-
+import gc
 import threading
 import logging
 logger = logging.getLogger(__name__)
@@ -85,6 +85,9 @@ class EventPlayer(object):
         th.start()
     
     def post_event(self, obj_name, event, timestamp_in_seconds):
+        # Remove any lingering widgets (which might have conflicting names with our receiver)
+        gc.collect()
+        
         try:
             # Locate the receiver object.
             obj = get_named_object(obj_name)
@@ -102,7 +105,7 @@ class EventPlayer(object):
                 # This isn't a plain mouse-move.
                 # It was probably important, and something went wrong.
                 raise
-        
+
         if self._playback_speed is not None:
             self._timer.sleep_until(timestamp_in_seconds / self._playback_speed)
         assert threading.current_thread().name != "MainThread"
@@ -179,6 +182,8 @@ class EventRecorder( QObject ):
                 logger.warn("Don't know how to record event: {}".format( str(event) ))
                 print "Don't know", str(event)
             else:
+                # Perform a full garbage collection before determining the name of this widget
+                gc.collect()
                 timestamp_in_seconds = self._timer.seconds()
                 objname = str(get_fully_qualified_name(watched))
                 if not ( self._ignore_parent_events and objname.startswith(self._parent_name) ):
