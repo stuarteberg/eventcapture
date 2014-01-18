@@ -101,6 +101,14 @@ class EventPlayer(object):
                 # Just proceed. We shouldn't raise an exception just because we failed to 
                 # deliver a pointless mouse-movement to a widget that doesn't exist anymore.
                 return
+            elif event.type() == QEvent.KeyRelease:
+                # Sometimes we try to send a KeyRelease to a just-closed dialog.
+                # Ignore errors from such cases.
+                return
+            elif event.type() == QEvent.Wheel:
+                # Also don't freak out if we can't find an object that is supposed to be receiving wheel events.
+                # If there's a real problem, it will be noticed that object is sent a mousepress or key event.
+                return
             else:
                 # This isn't a plain mouse-move.
                 # It was probably important, and something went wrong.
@@ -195,7 +203,6 @@ class EventRecorder( QObject ):
 
     def _shouldSaveEvent(self, event):
         if isinstance(event, QMouseEvent):
-            #return True
             # Ignore most mouse movement events if the user isn't pressing anything.
             if event.type() == QEvent.MouseMove \
                 and int(event.button()) == 0 \

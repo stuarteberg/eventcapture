@@ -2,7 +2,7 @@ import time
 
 import sip
 from PyQt4.QtCore import QObject
-from PyQt4.QtGui import QApplication, QMenu
+from PyQt4.QtGui import QApplication, QWidget, QMenu
 
 def get_toplevel_widgets():
     """
@@ -174,15 +174,9 @@ def _locate_immediate_child(parent, childname):
         siblings = filter( lambda w: w is not None, siblings)
         siblings = filter(lambda w: not sip.isdeleted(w), siblings)
         # Only consider visible children (or non-widgets)
-        # EDIT: This 'optimization' cannot be used.
-        #       Sometimes a recording can capture an event for a widget *just* before it is hidden, 
-        #       but during playback that event is played back after the widget was hidden.
-        #       (For example, a keypress event may ultimately lead to a widget becoming hidden,
-        #       but the recording might still try to send it a keyrelease event after it was hidden.)
-        #       For this reason, we must allow events to be sent to a widget, even if it is hidden.
-        #def isVisible(obj):
-        #     return not isinstance(obj, QWidget) or obj.isVisible()
-        # siblings = filter( isVisible, siblings )
+        def isVisible(obj):
+            return not isinstance(obj, QWidget) or obj.isVisible()
+        siblings = filter( isVisible, siblings )
 
     for child in siblings:
         if child.objectName() == "":
