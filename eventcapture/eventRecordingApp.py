@@ -35,7 +35,10 @@ class EventRecordingApp(QApplication):
             if hasattr(child, 'unique_child_index'):
                 del child.unique_child_index
             assign_unique_child_index(child)
-        
+        if event.type() == QEvent.ChildRemoved:
+            child = event.child()
+            if hasattr(child, 'unique_child_index'):
+                del child.unique_child_index
         return f( receiver, event )
 
     def getMainWindow(self):
