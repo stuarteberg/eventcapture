@@ -15,6 +15,7 @@ Documentation TODO:
 - children without unique names will be forcibly renamed
 - All objects must accept a new attribute called unique_child_index
 - model/view list widgets, etc. *must* use persistent editors to be recorded correctly.  Non-persistent editors cannot be used with this system.
+- RECORD SLOWLY.  In particular, don't make extraneous mouse movements when selecting a menu/combobox item.
 
 Implementation gotchas TODO:
 - top-level widgets that are closed may not be deleted immediately, and therefore are included when calling QApplication.topLevelWidgets().  For that reason, only visible top-level widgets receive events.  Shouldn't be a big deal, but could conceivably be a problem in special scenarios
@@ -23,3 +24,6 @@ Implementation gotchas TODO:
 - Explain difference between spontaneous events and non-spontaneous.
 - Explain the importance of providing both relative and GLOBAL mouse coordinates for QMouseEvents
 - Explain why we have to use a QApplication subclass instead of merely adding an eventFilter to the app.
+- Discuss the fact that QMenu is a special case: It has a parent, but is "top-level" anyway.  And to make matters worse, there seems to be a bug in sip.isdeleted() when it comes to QMenu.
+Solution: Always exclude QMenus from the list of top-level widgets.  They will be found in the 'normal' hierarchy.
+- Talk about the importance of garbage collection during recording and playback.
