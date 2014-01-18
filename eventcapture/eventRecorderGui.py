@@ -3,10 +3,10 @@ import sys
 import datetime
 
 from PyQt4 import uic
-from PyQt4.QtCore import Qt, QSettings, QEvent, QString
-from PyQt4.QtGui import QWidget, QIcon, QFileDialog, QMessageBox, QApplication
+from PyQt4.QtCore import Qt, QSettings, QString
+from PyQt4.QtGui import QApplication, QWidget, QIcon, QFileDialog, QMessageBox
 
-from eventRecorder import EventRecorder
+from eventcapture.eventRecorder import EventRecorder
 
 def encode_from_qstring(qstr):
     """Convert the given QString into a Python str with the same encoding as the filesystem."""
@@ -23,35 +23,39 @@ class EventRecorderGui(QWidget):
 
         self.setWindowTitle("Event Recorder")
 
-        self.startButton.clicked.connect( self._onStart )
         self.pauseButton.clicked.connect( self._onPause )
         self.saveButton.clicked.connect( self._onSave )
         self.insertCommentButton.clicked.connect( self._onInsertComment )
         
-        self._recorder = None
+        self._recorder = EventRecorder( parent=self )
         
         self.pauseButton.setEnabled(False)
         self.saveButton.setEnabled(False)
         self.newCommentEdit.setEnabled(True)
+        self.authorEdit.setEnabled(True)
         self.commentsDisplayEdit.setReadOnly(True)
 
-        self.startButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        icons_dir = os.path.split(__file__)[0] + '/icons/'
         self.pauseButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.pauseButton.setIcon( QIcon(icons_dir + 'media-playback-pause.png') )
+        self.pauseButton.setEnabled(True)
         self.saveButton.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self.saveButton.setEnabled(True)
+        self.saveButton.setIcon( QIcon(icons_dir + 'media-playback-stop.png') )
 
-# TODO: Install icons
-#         from ilastik.shell.gui.iconMgr import ilastikIcons
-#         self.startButton.setIcon( QIcon(ilastikIcons.Play) )
-#         self.pauseButton.setIcon( QIcon(ilastikIcons.Pause) )
-#         self.saveButton.setIcon( QIcon(ilastikIcons.Stop) )
-
-        self.newCommentEdit.installEventFilter(self)
         self._autopaused = False
         self._saved = False
+        
+        QApplication.instance().focusChanged.connect(self._onFocusChanged)
+
+        # Pre-populate the author name for convenience        
+        settings = QSettings("eventcapture", "gui")
+        variant = settings.value("author_name")
+        if not variant.isNull():
+            self.authorEdit.setText( variant.toString() )
     
     def openInPausedState(self):
         self.show()
-        self.startButton.click()
         self.newCommentEdit.setFocus( Qt.MouseFocusReason )
         self._onPause(True)
 
@@ -64,15 +68,6 @@ class EventRecorderGui(QWidget):
                 return False
         return True
     
-    def _onStart(self):
-        self._recorder = EventRecorder( parent=self )
-        self.startButton.setEnabled(False)
-        self.pauseButton.setEnabled(True)
-        if str(self.newCommentEdit.toPlainText()) != "":
-            self._onInsertComment()
-        self._onPause()
-        self.saveButton.setEnabled(True)
-
     def _onPause(self, autopaused=False):
         self._autopaused = autopaused
         if self._recorder.paused:
@@ -103,10 +98,18 @@ class EventRecorderGui(QWidget):
         if not self._recorder.paused:
             self._onPause(False)
 
-        self.startButton.setEnabled(True)
-        
+        settings = QSettings("eventcapture", "gui")
+
+        # Author name is required
+        author_name = str( self.authorEdit.text() )
+        if author_name == '':
+            QMessageBox.critical(self, "Author name required", "Please enter your name as the author of this test case.")
+            return
+        else:
+            # Save as default for next recording.
+            settings.setValue( "author_name", author_name )
+
         default_dir = self._default_save_dir
-        settings = QSettings("Ilastik", "Event Recorder")
         variant = settings.value("recordings_directory")
         if not variant.isNull():
             default_dir = str( variant.toString() )
@@ -134,7 +137,7 @@ class EventRecorderGui(QWidget):
         settings.setValue( "recordings_directory", default_dir )
         
         with open(script_path, 'w') as f:
-            self._recorder.writeScript(f)
+            self._recorder.writeScript(f, author_name)
         self._saved = True
             
     def _onInsertComment(self):
@@ -147,17 +150,21 @@ class EventRecorderGui(QWidget):
         self.commentsDisplayEdit.appendPlainText("--------------------------------------------------")
         self.newCommentEdit.clear()
 
-    def eventFilter(self, watched, event):
-        if watched == self.newCommentEdit:
-            if event.type() == QEvent.FocusIn:
-                if not self._recorder.paused:
-                    self._onPause(True)
-            elif event.type() == QEvent.FocusOut:
-                if self._autopaused and self._recorder.paused:
-                    self._onPause(False)
+    def _is_descendent(self, widget):
+        while widget is not None:
+            if widget is self:
+                return True
+            widget = widget.parent()
         return False
 
-
-
-
-
+    def _onFocusChanged(self, old, new):
+        old_is_descendent = self._is_descendent(old)
+        new_is_descendent = self._is_descendent(new)
+        if new_is_descendent and not old_is_descendent:
+            # This is a focus-in change
+            if not self._recorder.paused:
+                self._onPause(True)
+        elif not new_is_descendent and old_is_descendent:
+            # This is a focus-out change
+            if self._autopaused and self._recorder.paused:
+                self._onPause(False)

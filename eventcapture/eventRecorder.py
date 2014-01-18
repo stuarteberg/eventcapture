@@ -171,6 +171,7 @@ class EventRecorder( QObject ):
                               QEvent.WindowActivate,
                               QEvent.WindowDeactivate,
                               QEvent.ActivationChange,
+                              QEvent.FileOpen,
                               # These event symbols are not exposed in pyqt, so we pull them from our own enum
                               EventTypes.Style,
                               EventTypes.ApplicationActivate,
@@ -188,7 +189,7 @@ class EventRecorder( QObject ):
                 eventstr = event_to_string(event)
             except KeyError:
                 logger.warn("Don't know how to record event: {}".format( str(event) ))
-                print "Don't know", str(event)
+                print "Don't know how to record", str(event)
             else:
                 # Perform a full garbage collection before determining the name of this widget
                 gc.collect()
@@ -252,13 +253,14 @@ class EventRecorder( QObject ):
         self._timer.pause()
         QApplication.instance()._notify = _orig_QApp_notify
     
-    def writeScript(self, fileobj):
+    def writeScript(self, fileobj, author_name):
         # Write header comments
         fileobj.write(
 """
 # Event Recording
+# Created by {}
 # Started at: {}
-""".format( str(self._timer.start_time) ) )
+""".format( author_name, str(self._timer.start_time) ) )
 
         # Write playback function definition
         fileobj.write(
