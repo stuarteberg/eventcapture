@@ -2,7 +2,22 @@ import time
 
 import sip
 from PyQt4.QtCore import QObject
-from PyQt4.QtGui import QApplication, QWidget
+from PyQt4.QtGui import QApplication, QMenu
+
+def get_toplevel_widgets():
+    """
+    Get all "top-level" widgets EXCEPT:
+    - Exclude QMenus (due to a bug in Qt, and besides, they are accessible via the 'normal' mechanism)
+    - Exclude widgets that are already deleted on the C++ side
+    - Exclude widgets that aren't visible
+    """
+    toplevel_widgets = QApplication.topLevelWidgets()
+    toplevel_widgets = filter( lambda w: not isinstance(w, QMenu), toplevel_widgets )
+    toplevel_widgets = filter( lambda w: not sip.isdeleted(w), toplevel_widgets )
+    toplevel_widgets = filter( lambda w: w.isVisible(), toplevel_widgets )
+    #toplevel_widgets = filter( lambda w: w is not None, toplevel_widgets)
+    return toplevel_widgets
+
 
 def get_fully_qualified_name(obj):
     """
@@ -52,6 +67,7 @@ def get_named_object(full_name, timeout=5.0):
         timeout -= 1.0
         obj = _locate_descendent(None, full_name)
 
+    ancestor_name = None
     if obj is None:
         # We couldn't find the child.
         # To give a better error message, find the deepest object that COULD be found
@@ -84,7 +100,10 @@ def assign_unique_child_index( child ):
     if parent is not None:
         matching_siblings = filter( lambda c:type(c) == type(child), parent.children() )
     else:
-        matching_siblings = filter( lambda c:type(c) == type(child), QApplication.topLevelWidgets() )
+        matching_siblings = filter( lambda c:type(c) == type(child), get_toplevel_widgets() )
+
+    matching_siblings = filter( lambda w: w is not None, matching_siblings)
+    matching_siblings = filter(lambda w: not sip.isdeleted(w), matching_siblings)
     existing_indexes = set()
     for sibling in matching_siblings:
         if hasattr(sibling, 'unique_child_index'):
@@ -112,10 +131,11 @@ def _has_unique_name(obj):
     #  some subclasses (e.g. QModelIndex), which really is very ugly on Qt's part.
     parent = QObject.parent(obj)
     if parent is None:
-        siblings = QApplication.topLevelWidgets()
-        siblings = filter(QWidget.isVisible, siblings)
+        siblings = get_toplevel_widgets()
     else:
         siblings = parent.children()        
+        siblings = filter( lambda w: w is not None, siblings)
+        siblings = filter(lambda w: not sip.isdeleted(w), siblings)
     obj_name = obj.objectName()
     for child in siblings:
         if child is not obj and child.objectName() == obj_name:
@@ -131,8 +151,7 @@ def _normalize_child_names(parent):
         # For top-level widgets, we can't 'normalize' the names because we can't count on 
         #  QApplication.topLevelWidgets() to return a consistent order (I think)
         # Instead of normalizing widget names, we'll check for problems.
-        toplevel_widgets = QApplication.topLevelWidgets()
-        toplevel_widgets = filter( QWidget.isVisible, toplevel_widgets )
+        toplevel_widgets = get_toplevel_widgets()
         existing_names = set()
         for child in toplevel_widgets:
             assert child.objectName() not in existing_names, \
@@ -149,11 +168,11 @@ def _normalize_child_names(parent):
 def _locate_immediate_child(parent, childname):
     if parent is None:
         assert childname != "", "top-level widgets must have names!"
-        siblings = QApplication.topLevelWidgets()
-        siblings = filter(lambda w: not sip.isdeleted(w), siblings)
-        siblings = filter(QWidget.isVisible, siblings)
+        siblings = get_toplevel_widgets()
     else:
         siblings = parent.children()
+        siblings = filter( lambda w: w is not None, siblings)
+        siblings = filter(lambda w: not sip.isdeleted(w), siblings)
         # Only consider visible children (or non-widgets)
         # EDIT: This 'optimization' cannot be used.
         #       Sometimes a recording can capture an event for a widget *just* before it is hidden, 
