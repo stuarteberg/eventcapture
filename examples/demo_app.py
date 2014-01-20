@@ -35,12 +35,27 @@ class DemoAppMainWindow( QMainWindow ):
 
         def _init_controls(self):
             name_edit = QLineEdit()
-            greet_button = QPushButton("Greet!", clicked=self._update_greeting)
             
             input_layout = QHBoxLayout()
             input_layout.addWidget( QLabel("Name:") )
             input_layout.addWidget( name_edit )
+            
+            # Previously created recordings should work even if new controls
+            #    are added to the application in the future, as long as these 
+            #    new controls are given UNIQUE OBJECT NAMES.
+            # Otherwise, old recordings might break.
+            # For example, make a recording, then uncomment the following lines
+            #    and play it back your recording. It should still work.
+            #new_button_1 = QPushButton("NewButton1", objectName="new_button_1")
+            #input_layout.addWidget( new_button_1 )
+
+            greet_button = QPushButton("Greet!", clicked=self._update_greeting)
             input_layout.addWidget( greet_button )
+
+            # See comment above.  
+            # These lines can also be uncommented without breaking previously created recordings.
+            #new_button_2 = QPushButton("NewButton2", objectName="new_button_2")
+            #input_layout.addWidget( new_button_2 )
     
             input_groupbox = QGroupBox("Input", parent=self)
             input_groupbox.setLayout( input_layout )
