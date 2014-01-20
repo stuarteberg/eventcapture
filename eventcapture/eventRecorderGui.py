@@ -120,7 +120,7 @@ class EventRecorderGui(QWidget):
         timestr = "{:04d}{:02d}{:02d}-{:02d}{:02d}".format( now.year, now.month, now.day, now.hour, now.minute )
         default_script_path = os.path.join( default_dir, "recording-{timestr}.py".format( timestr=timestr ) )
             
-        dlg = QFileDialog(self, "Save Playback Script", default_script_path, "Ilastik event playback scripts (*.py)")
+        dlg = QFileDialog(self, "Save Playback Script", default_script_path, "eventcapture scripts (*.py)")
         dlg.setObjectName("event_recorder_save_dlg")
         dlg.setAcceptMode(QFileDialog.AcceptSave)
         dlg.setOptions( QFileDialog.Options(QFileDialog.DontUseNativeDialog) )
