@@ -92,35 +92,37 @@ def get_named_object(full_name, timeout=5.0):
     While searching for the object, actively **rename** any objects that do not have unique names within their parent.
     Since the renaming scheme is consistent with get_fully_qualified name, we should always be able to locate the target object, even if it was renamed when the object was originally recorded.
     """
+    timeout_ = timeout
     with MainThreadPausedContext():
-        timeout_ = timeout
         obj = _locate_descendent(None, full_name)
-        while obj is None and timeout > 0.0:
-            time.sleep(1.0)
-            timeout -= 1.0
+    while obj is None and timeout > 0.0:
+        time.sleep(1.0)
+        timeout -= 1.0
+        with MainThreadPausedContext():
             obj = _locate_descendent(None, full_name)
     
-        ancestor_name = None
-        if obj is None:
-            # We couldn't find the child.
-            # To give a better error message, find the deepest object that COULD be found
-            names = full_name.split('.')
-            for i in range(len(names)-1):
-                ancestor_name = ".".join( names[:-i-1] )
+    ancestor_name = None
+    if obj is None:
+        # We couldn't find the child.
+        # To give a better error message, find the deepest object that COULD be found
+        names = full_name.split('.')
+        for i in range(len(names)-1):
+            ancestor_name = ".".join( names[:-i-1] )
+            with MainThreadPausedContext():
                 obj = _locate_descendent(None, ancestor_name)
-                if obj is not None:
-                    break
-                else:
-                    ancestor_name = None
-    
-            msg = "Couldn't locate object: {} within timeout of {} seconds\n".format( full_name, timeout_ )
-            if ancestor_name:
-                msg += "Deepest found object was: {}\n".format( ancestor_name )
-                msg += "Existing children were: {}".format( map(QObject.objectName, obj.children()) )
+            if obj is not None:
+                break
             else:
-                msg += "Failed to find the top-level widget {}".format( full_name.split('.')[0] )
-            raise NamedObjectNotFoundError( msg )
-        return obj
+                ancestor_name = None
+
+        msg = "Couldn't locate object: {} within timeout of {} seconds\n".format( full_name, timeout_ )
+        if ancestor_name:
+            msg += "Deepest found object was: {}\n".format( ancestor_name )
+            msg += "Existing children were: {}".format( map(QObject.objectName, obj.children()) )
+        else:
+            msg += "Failed to find the top-level widget {}".format( full_name.split('.')[0] )
+        raise NamedObjectNotFoundError( msg )
+    return obj
 
 def assign_unique_child_index( child ):
     """
