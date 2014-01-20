@@ -2,18 +2,13 @@ import time
 import threading
 
 import sip
-from PyQt4.QtCore import Qt, QObject, pyqtSignal
+from PyQt4.QtCore import QObject, QTimer
 from PyQt4.QtGui import QApplication, QWidget, QMenu, QPushButton
 
-class Signaler(QObject):
-    sig = pyqtSignal()
-    
+class MainThreadPausedContext(QObject):
     def __init__(self, *args, **kwargs):
-        QObject.__init__(self, *args, **kwargs)
-
-class MainThreadPausedContext(object):
-    def __init__(self):
-        self._signaler = Signaler()
+        super(MainThreadPausedContext, self).__init__(*args, **kwargs)
+        self.moveToThread( QApplication.instance().thread() )
         self._paused_event = threading.Event()
         self._pauser = threading.Event()
 
@@ -26,8 +21,10 @@ class MainThreadPausedContext(object):
             return
 
         # Schedule the suspend func to execute on the main thread
-        self._signaler.sig.connect( self._suspend_main, Qt.QueuedConnection )
-        self._signaler.sig.emit()
+        # Note: We are allowed to use QTimer outside of the main thread like this 
+        #        because the target function belongs to a QObject
+        QTimer.singleShot(0, self._suspend_main)
+
         # Wait until the main thread entered the suspend func
         self._paused_event.wait()
 

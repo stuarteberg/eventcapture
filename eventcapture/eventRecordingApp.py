@@ -89,7 +89,7 @@ class EventRecordingApp(QApplication):
             QTimer.singleShot( 100, app.recorder_control_window.raise_ )
             QTimer.singleShot( 110, app.recorder_control_window.activateWindow )
         elif mode == 'playback':
-            from eventcapture.eventRecorder import EventPlayer
+            from eventcapture.eventPlayer import EventPlayer
             player = EventPlayer(playback_speed, comment_display)
             # Playback must be launched from within the event loop,
             # after application has started up.
