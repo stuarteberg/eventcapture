@@ -2,7 +2,7 @@ from PyQt4.QtCore import pyqtSignal
 from PyQt4.QtCore import Qt, QObject, QEvent, QChildEvent, QTimerEvent
 from PyQt4.QtGui import QApplication, QMouseEvent, QGraphicsSceneMouseEvent, QWindowStateChangeEvent, QMoveEvent, QCursor, QComboBox, QMenu
 
-from objectNameUtils import get_fully_qualified_name, get_named_object, NamedObjectNotFoundError
+from objectNameUtils import get_fully_qualified_name, get_named_object, NamedObjectNotFoundError, Signaler
 from eventSerializers import event_to_string
 from eventTypeNames import EventTypes
 
@@ -46,12 +46,6 @@ class EventFlusher(QObject):
     def wait(self):
         assert threading.current_thread().name != "MainThread"
         self._state.wait()
-
-class Signaler(QObject):
-    sig = pyqtSignal()
-    
-    def __init__(self, *args, **kwargs):
-        QObject.__init__(self, *args, **kwargs)
 
 class EventPlayer(object):
     def __init__(self, playback_speed=None, comment_display=None):

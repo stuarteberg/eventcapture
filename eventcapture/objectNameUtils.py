@@ -1,8 +1,42 @@
 import time
+import threading
 
 import sip
-from PyQt4.QtCore import QObject
-from PyQt4.QtGui import QApplication, QWidget, QMenu
+from PyQt4.QtCore import Qt, QObject, pyqtSignal
+from PyQt4.QtGui import QApplication, QWidget, QMenu, QPushButton
+
+class Signaler(QObject):
+    sig = pyqtSignal()
+    
+    def __init__(self, *args, **kwargs):
+        QObject.__init__(self, *args, **kwargs)
+
+class MainThreadPausedContext(object):
+    def __init__(self):
+        self._signaler = Signaler()
+        self._paused_event = threading.Event()
+        self._pauser = threading.Event()
+
+    def _suspend_main(self):
+        self._paused_event.set()
+        self._pauser.wait()
+
+    def __enter__(self):
+        if threading.current_thread().name == "MainThread":
+            return
+
+        # Schedule the suspend func to execute on the main thread
+        self._signaler.sig.connect( self._suspend_main, Qt.QueuedConnection )
+        self._signaler.sig.emit()
+        # Wait until the main thread entered the suspend func
+        self._paused_event.wait()
+
+    def __exit__(self, *args):
+        if threading.current_thread().name == "MainThread":
+            return
+
+        # Allow the main thread to exit the suspend func
+        self._pauser.set()
 
 def get_toplevel_widgets():
     """
@@ -27,29 +61,30 @@ def get_fully_qualified_name(obj):
     Note: The name uniqueness check and renaming algorithm are terribly inefficient, 
           but it doesn't seem to slow things down much.  We could improve this later if it becomes a problem.
     """
-    # Must call QObject.parent this way because obj.parent() is *shadowed* in 
-    #  some subclasses (e.g. QModelIndex), which really is very ugly on Qt's part.
-    parent = QObject.parent(obj)
-    objName = obj.objectName()
-    if objName == "":
-        _assign_default_object_name(obj)
-    if not _has_unique_name(obj):
-        _normalize_child_names(parent)
+    with MainThreadPausedContext():
+        # Must call QObject.parent this way because obj.parent() is *shadowed* in 
+        #  some subclasses (e.g. QModelIndex), which really is very ugly on Qt's part.
+        parent = QObject.parent(obj)
+        objName = obj.objectName()
+        if objName == "":
+            _assign_default_object_name(obj)
+        if not _has_unique_name(obj):
+            _normalize_child_names(parent)
+        
+        objName = str(obj.objectName())
+        
+        # We combine object names using periods, which means they better not have periods themselves...
+        assert objName.find('.') == -1, "Objects names must not use periods!  Found an object named: {}".format( objName )
     
-    objName = str(obj.objectName())
+        if parent is None:
+            return objName
+        
+        fullname = "{}.".format( get_fully_qualified_name(parent) ) + objName
     
-    # We combine object names using periods, which means they better not have periods themselves...
-    assert objName.find('.') == -1, "Objects names must not use periods!  Found an object named: {}".format( objName )
-
-    if parent is None:
-        return objName
+        # Make sure no siblings have the same name!
+        assert _has_unique_name(obj), "Detected multiple objects with full name: {}".format( fullname )
     
-    fullname = "{}.".format( get_fully_qualified_name(parent) ) + objName
-
-    # Make sure no siblings have the same name!
-    assert _has_unique_name(obj), "Detected multiple objects with full name: {}".format( fullname )
-
-    return fullname
+        return fullname
 
 class NamedObjectNotFoundError(Exception):
     pass
@@ -60,34 +95,35 @@ def get_named_object(full_name, timeout=5.0):
     While searching for the object, actively **rename** any objects that do not have unique names within their parent.
     Since the renaming scheme is consistent with get_fully_qualified name, we should always be able to locate the target object, even if it was renamed when the object was originally recorded.
     """
-    timeout_ = timeout
-    obj = _locate_descendent(None, full_name)
-    while obj is None and timeout > 0.0:
-        time.sleep(1.0)
-        timeout -= 1.0
+    with MainThreadPausedContext():
+        timeout_ = timeout
         obj = _locate_descendent(None, full_name)
-
-    ancestor_name = None
-    if obj is None:
-        # We couldn't find the child.
-        # To give a better error message, find the deepest object that COULD be found
-        names = full_name.split('.')
-        for i in range(len(names)-1):
-            ancestor_name = ".".join( names[:-i-1] )
-            obj = _locate_descendent(None, ancestor_name)
-            if obj is not None:
-                break
+        while obj is None and timeout > 0.0:
+            time.sleep(1.0)
+            timeout -= 1.0
+            obj = _locate_descendent(None, full_name)
+    
+        ancestor_name = None
+        if obj is None:
+            # We couldn't find the child.
+            # To give a better error message, find the deepest object that COULD be found
+            names = full_name.split('.')
+            for i in range(len(names)-1):
+                ancestor_name = ".".join( names[:-i-1] )
+                obj = _locate_descendent(None, ancestor_name)
+                if obj is not None:
+                    break
+                else:
+                    ancestor_name = None
+    
+            msg = "Couldn't locate object: {} within timeout of {} seconds\n".format( full_name, timeout_ )
+            if ancestor_name:
+                msg += "Deepest found object was: {}\n".format( ancestor_name )
+                msg += "Existing children were: {}".format( map(QObject.objectName, obj.children()) )
             else:
-                ancestor_name = None
-
-        msg = "Couldn't locate object: {} within timeout of {} seconds\n".format( full_name, timeout_ )
-        if ancestor_name:
-            msg += "Deepest found object was: {}\n".format( ancestor_name )
-            msg += "Existing children were: {}".format( map(QObject.objectName, obj.children()) )
-        else:
-            msg += "Failed to find the top-level widget {}".format( full_name.split('.')[0] )
-        raise NamedObjectNotFoundError( msg )
-    return obj
+                msg += "Failed to find the top-level widget {}".format( full_name.split('.')[0] )
+            raise NamedObjectNotFoundError( msg )
+        return obj
 
 def assign_unique_child_index( child ):
     """
@@ -118,10 +154,32 @@ def assign_unique_child_index( child ):
             existing_indexes.add( next_available_index )
 
 def _assign_default_object_name( obj ):
-    if not hasattr(obj, 'unique_child_index'):
+    # Ensure that this object and its siblings have a child index
+    assign_unique_child_index(obj)
+    
+    if type(obj) == QPushButton and hasattr(obj, 'unique_child_index') and obj.unique_child_index == 0:
         assign_unique_child_index(obj)
     
-    newname = '{}_{}'.format( obj.__class__.__name__, obj.unique_child_index )
+    # Find all siblings (including this object) that appear to have auto-defined names
+    parent = QObject.parent(obj)
+    # Find all siblings of matching type
+    if parent is not None:
+        siblings = filter( lambda c:type(c) == type(obj), parent.children() )
+        siblings = filter(lambda w: not sip.isdeleted(w), siblings)
+    else:
+        siblings = filter( lambda c:type(c) == type(obj), get_toplevel_widgets() )
+
+    if obj not in siblings:
+        # Special case for top-level widgets, since not all of its 'siblings' are included included in get_toplevel_widgets()
+        index_among_default_names = obj.unique_child_index
+    else:
+        siblings = filter( lambda c: c.objectName() == "" or str(c.objectName()).startswith( '{}_'.format( obj.__class__.__name__ ) ), siblings )
+        if obj not in siblings:
+            siblings.append(obj)
+            siblings = sorted( siblings, key=lambda c: c.unique_child_index )
+        index_among_default_names = siblings.index( obj )
+    
+    newname = '{}_{}'.format( obj.__class__.__name__, index_among_default_names )
     obj.setObjectName( newname )
 
 def _has_unique_name(obj):
