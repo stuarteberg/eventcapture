@@ -2,7 +2,7 @@ import functools
 from PyQt4.QtCore import Qt, QEvent, QTimer
 from PyQt4.QtGui import QApplication, QWidget, QMainWindow
 
-from objectNameUtils import assign_unique_child_index
+from objectNameUtils import assign_unique_child_index, remove_unique_child_index
 
 class EventRecordingApp(QApplication):
     """
@@ -32,13 +32,11 @@ class EventRecordingApp(QApplication):
         # The assign_unique_child_index function does not assume that this is the ONLY new object that needs a unique id assigned to it.
         if event.type() == QEvent.ChildPolished:
             child = event.child()
-            if hasattr(child, 'unique_child_index'):
-                del child.unique_child_index
+            remove_unique_child_index(child)
             assign_unique_child_index(child)
         if event.type() == QEvent.ChildRemoved:
             child = event.child()
-            if hasattr(child, 'unique_child_index'):
-                del child.unique_child_index
+            remove_unique_child_index(child)
         return f( receiver, event )
 
     def getMainWindow(self):

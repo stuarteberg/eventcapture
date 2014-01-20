@@ -2,7 +2,7 @@ import time
 import threading
 
 import sip
-from PyQt4.QtCore import QObject, QTimer
+from PyQt4.QtCore import QObject, QTimer, QVariant
 from PyQt4.QtGui import QApplication, QWidget, QMenu, QPushButton
 
 class MainThreadPausedContext(QObject):
@@ -141,22 +141,29 @@ def assign_unique_child_index( child ):
     matching_siblings = filter(lambda w: not sip.isdeleted(w), matching_siblings)
     existing_indexes = set()
     for sibling in matching_siblings:
-        if hasattr(sibling, 'unique_child_index'):
-            existing_indexes.add(sibling.unique_child_index)
+        prop = sibling.property('unique_child_index')
+        if prop.isValid():
+            existing_indexes.add( prop.toInt() )
     
     next_available_index = 0
     for sibling in matching_siblings:
         while next_available_index in existing_indexes:
             next_available_index += 1
-        if not hasattr(sibling, 'unique_child_index'):
-            sibling.unique_child_index = next_available_index
+        prop = sibling.property('unique_child_index')
+        if not prop.isValid():
+            sibling.setProperty( 'unique_child_index', next_available_index )
             existing_indexes.add( next_available_index )
+
+def remove_unique_child_index( obj ):
+    obj.setProperty( 'unique_child_index', QVariant() )
+    assert not obj.property('unique_child_index').isValid()
 
 def _assign_default_object_name( obj ):
     # Ensure that this object and its siblings have a child index
     assign_unique_child_index(obj)
     
-    if type(obj) == QPushButton and hasattr(obj, 'unique_child_index') and obj.unique_child_index == 0:
+    prop = obj.property('unique_child_index')
+    if type(obj) == QPushButton and prop.isValid() and prop.toInt() == 0:
         assign_unique_child_index(obj)
     
     # Find all siblings (including this object) that appear to have auto-defined names
@@ -170,16 +177,20 @@ def _assign_default_object_name( obj ):
 
     if obj not in siblings:
         # Special case for top-level widgets, since not all of its 'siblings' are included included in get_toplevel_widgets()
-        index_among_default_names = obj.unique_child_index
+        index_among_default_names = obj.property('unique_child_index').toInt()
+        newname = '{}_{}'.format( obj.__class__.__name__, index_among_default_names )
+        obj.setObjectName( newname )
     else:
-        siblings = filter( lambda c: c.objectName() == "" or str(c.objectName()).startswith( '{}_'.format( obj.__class__.__name__ ) ), siblings )
+        siblings = filter( lambda c: str(c.objectName()) == "" or str(c.objectName()).startswith( '{}_'.format( obj.__class__.__name__ ) ), siblings )
         if obj not in siblings:
             siblings.append(obj)
-            siblings = sorted( siblings, key=lambda c: c.unique_child_index )
-        index_among_default_names = siblings.index( obj )
-    
-    newname = '{}_{}'.format( obj.__class__.__name__, index_among_default_names )
-    obj.setObjectName( newname )
+        siblings = sorted( siblings, key=lambda c: c.property('unique_child_index').toInt() )
+
+        # Rename everything we might have touched
+        for obj in siblings:
+            index_among_default_names = siblings.index( obj )
+            newname = '{}_{}'.format( obj.__class__.__name__, index_among_default_names )
+            obj.setObjectName( newname )
 
 def _has_unique_name(obj):
     if obj.objectName() == '':
