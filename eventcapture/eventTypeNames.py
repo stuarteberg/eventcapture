@@ -1,3 +1,4 @@
+from PyQt4.QtCore import Qt 
 
 def get_event_type_name( event_type ):
     return EventTypeNameDict[event_type]
@@ -20,6 +21,17 @@ def get_key_modifiers_string(modifiers):
                       ('Qt.GroupSwitchModifier', 0x40000000) ]
 
     return _get_flags_string(modifiers, 'Qt.NoModifier', modifierNames)
+
+def get_focus_reason_string(reason):
+    reasonStrings = { Qt.MouseFocusReason : 'Qt.MouseFocusReason',
+                      Qt.TabFocusReason : 'Qt.TabFocusReason',
+                      Qt.BacktabFocusReason : 'Qt.BacktabFocusReason',
+                      Qt.ActiveWindowFocusReason : 'Qt.ActiveWindowFocusReason',
+                      Qt.PopupFocusReason : 'Qt.PopupFocusReason',
+                      Qt.ShortcutFocusReason : 'Qt.ShortcutFocusReason',
+                      Qt.MenuBarFocusReason : 'Qt.MenuBarFocusReason',
+                      Qt.OtherFocusReason : 'Qt.OtherFocusReason' }
+    return reasonStrings[reason]
 
 def _get_flags_string(flags, defaultName, flagNames):
     flags = int(flags)
