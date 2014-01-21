@@ -46,7 +46,10 @@ def get_toplevel_widgets():
     toplevel_widgets = filter( lambda w: not isinstance(w, QMenu), toplevel_widgets )
     toplevel_widgets = filter( lambda w: not sip.isdeleted(w), toplevel_widgets )
     toplevel_widgets = filter( lambda w: w.isVisible(), toplevel_widgets )
-    #toplevel_widgets = filter( lambda w: w is not None, toplevel_widgets)
+    
+    # The QApplication isn't a widget, but include it anyway, 
+    #  since some widgets may use it as a parent.
+    toplevel_widgets.append( QApplication.instance() ) 
     return toplevel_widgets
 
 
@@ -101,28 +104,30 @@ def get_named_object(full_name, timeout=5.0):
         with MainThreadPausedContext():
             obj = _locate_descendent(None, full_name)
     
+    if obj is not None:
+        # Success.
+        return obj
+    
+    # We couldn't find the child.
+    # To give a better error message, find the deepest object that COULD be found
     ancestor_name = None
-    if obj is None:
-        # We couldn't find the child.
-        # To give a better error message, find the deepest object that COULD be found
-        names = full_name.split('.')
-        for i in range(len(names)-1):
-            ancestor_name = ".".join( names[:-i-1] )
-            with MainThreadPausedContext():
-                obj = _locate_descendent(None, ancestor_name)
-            if obj is not None:
-                break
-            else:
-                ancestor_name = None
-
-        msg = "Couldn't locate object: {} within timeout of {} seconds\n".format( full_name, timeout_ )
-        if ancestor_name:
-            msg += "Deepest found object was: {}\n".format( ancestor_name )
-            msg += "Existing children were: {}".format( map(QObject.objectName, obj.children()) )
+    names = full_name.split('.')
+    for i in range(len(names)-1):
+        ancestor_name = ".".join( names[:-i-1] )
+        with MainThreadPausedContext():
+            obj = _locate_descendent(None, ancestor_name)
+        if obj is not None:
+            break
         else:
-            msg += "Failed to find the top-level widget {}".format( full_name.split('.')[0] )
-        raise NamedObjectNotFoundError( msg )
-    return obj
+            ancestor_name = None
+
+    msg = "Couldn't locate object: {} within timeout of {} seconds\n".format( full_name, timeout_ )
+    if ancestor_name:
+        msg += "Deepest found object was: {}\n".format( ancestor_name )
+        msg += "Existing children were: {}".format( map(QObject.objectName, obj.children()) )
+    else:
+        msg += "Failed to find the top-level widget {}".format( full_name.split('.')[0] )
+    raise NamedObjectNotFoundError( msg )
 
 def assign_unique_child_index( child ):
     """
