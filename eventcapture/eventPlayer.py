@@ -2,7 +2,7 @@ import gc
 import threading
 
 from PyQt4.QtCore import QObject, QEvent, QTimer
-from PyQt4.QtGui import QApplication
+from PyQt4.QtGui import QApplication, QCursor
 
 from timer import Timer
 from objectNameUtils import get_named_object, NamedObjectNotFoundError
@@ -55,6 +55,10 @@ class EventPlayer(object):
         """
         _globals = {}
         _locals = {}
+        
+        # Before we start, move the mouse cursor to (0,0) to avoid interference with the recorded events.
+        QCursor.setPos(0, 0)
+        
         """ 
         Calls to events in the playback script like: player.post_event(obj,PyQt4.QtGui.QMouseEvent(...),t)
         are/were responsible for the xcb-error on Ubuntu, because you may not use

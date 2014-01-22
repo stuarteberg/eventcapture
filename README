@@ -13,7 +13,7 @@ $ PYTHONPATH=.. python demo_app.py --playback /tmp/demo_recording.py
 Documentation TODO:
 - top-level widgets must be given unique names
 - children without unique names will be forcibly renamed
-- All objects must accept a new attribute called unique_child_index
+- All objects must accept a new Qt property called unique_child_index
 - model/view list widgets, etc. *must* use persistent editors to be recorded correctly.  Non-persistent editors cannot be used with this system.
 - RECORD SLOWLY.  In particular, don't make extraneous mouse movements when selecting a menu/combobox item.
 - Don't touch the app while a recording is playing.  Even mouse movements can cause widgets to be accessed out of order, which can corrupt default names.
