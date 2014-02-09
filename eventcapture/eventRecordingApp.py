@@ -1,5 +1,5 @@
 import functools
-from PyQt4.QtCore import Qt, QEvent, QTimer
+from PyQt4.QtCore import pyqtSignal, Qt, QEvent, QTimer
 from PyQt4.QtGui import QApplication, QWidget, QMainWindow
 
 from objectNameUtils import assign_unique_child_index, remove_unique_child_index
@@ -10,6 +10,8 @@ class EventRecordingApp(QApplication):
     Using notify() instead of QApplication.instance().installEventFilter() is more general,
     and necessary for our purposes.
     """
+    aboutToNotify = pyqtSignal(object, object)
+    
     def __init__(self, *args, **kwargs):
         super(EventRecordingApp, self).__init__(*args, **kwargs)
         self._notify = functools.partial( QApplication.notify, QApplication.instance() )
@@ -37,6 +39,8 @@ class EventRecordingApp(QApplication):
         if event.type() == QEvent.ChildRemoved:
             child = event.child()
             remove_unique_child_index(child)
+
+        self.aboutToNotify.emit(receiver, event)
         return f( receiver, event )
 
     def getMainWindow(self):

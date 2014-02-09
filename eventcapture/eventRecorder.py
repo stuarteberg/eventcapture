@@ -1,19 +1,16 @@
-import sip
 from PyQt4.QtCore import QObject, QEvent, QChildEvent, QTimerEvent
 from PyQt4.QtGui import QApplication, QMouseEvent, QGraphicsSceneMouseEvent, QWindowStateChangeEvent, QMoveEvent, QCursor, QComboBox, QMenu
 
 from objectNameUtils import get_fully_qualified_name
 from eventSerializers import event_to_string
 from eventTypeNames import EventTypes
+from eventRecordingApp import EventRecordingApp
 
 from timer import Timer
 
-import functools
 import gc
 import logging
 logger = logging.getLogger(__name__)
-
-_orig_QApp_notify = functools.partial( QApplication.notify, QApplication.instance() )
 
 def has_ancestor(obj, object_type):
     # Must call QObject.parent this way because obj.parent() is *shadowed* in 
@@ -37,6 +34,13 @@ class EventRecorder( QObject ):
             self._parent_name = get_fully_qualified_name(parent)
         self._captured_events = []
         self._timer = Timer()
+        
+        assert isinstance(QApplication.instance(), EventRecordingApp)
+        QApplication.instance().aboutToNotify.connect( self.handleApplicationEvent )
+
+    def handleApplicationEvent(self, receiver, event):
+        if not self.paused:
+            self.captureEvent(receiver, event)
 
     @property
     def paused(self):
@@ -118,22 +122,8 @@ class EventRecorder( QObject ):
         # Testing shows that events that were "filtered out" by a different event filter may not be seen by the QApplication event filter.
         self._timer.unpause()
 
-        def _notify(receiver, event):
-            if sip.isdeleted(receiver):
-                # Somehow, for unknown reasons, it is possible (rarely) for this function
-                #   to be called when the receiver is already deleted on the C++ side.
-                # Just ignore the event in that case.
-                return False
-            self.captureEvent(receiver, event)
-            return _orig_QApp_notify(receiver, event)
-
-        from eventRecordingApp import EventRecordingApp
-        assert isinstance( QApplication.instance(), EventRecordingApp )
-        QApplication.instance()._notify =_notify
-
     def pause(self):
         self._timer.pause()
-        QApplication.instance()._notify = _orig_QApp_notify
     
     def writeScript(self, fileobj, author_name):
         # Write header comments
