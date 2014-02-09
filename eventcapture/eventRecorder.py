@@ -1,3 +1,4 @@
+import sip
 from PyQt4.QtCore import QObject, QEvent, QChildEvent, QTimerEvent
 from PyQt4.QtGui import QApplication, QMouseEvent, QGraphicsSceneMouseEvent, QWindowStateChangeEvent, QMoveEvent, QCursor, QComboBox, QMenu
 
@@ -47,6 +48,7 @@ class EventRecorder( QObject ):
                               QEvent.WindowDeactivate,
                               QEvent.ActivationChange,
                               QEvent.FileOpen,
+                              QEvent.Clipboard,
                               # These event symbols are not exposed in pyqt, so we pull them from our own enum
                               EventTypes.Style,
                               EventTypes.ApplicationActivate,
@@ -117,6 +119,11 @@ class EventRecorder( QObject ):
         self._timer.unpause()
 
         def _notify(receiver, event):
+            if sip.isdeleted(receiver):
+                # Somehow, for unknown reasons, it is possible (rarely) for this function
+                #   to be called when the receiver is already deleted on the C++ side.
+                # Just ignore the event in that case.
+                return False
             self.captureEvent(receiver, event)
             return _orig_QApp_notify(receiver, event)
 
