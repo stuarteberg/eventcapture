@@ -1,3 +1,4 @@
+import sip
 from PyQt4.QtCore import QObject, QEvent, QChildEvent, QTimerEvent
 from PyQt4.QtGui import QApplication, QMouseEvent, QGraphicsSceneMouseEvent, QWindowStateChangeEvent, QMoveEvent, QCursor, QComboBox, QMenu
 
@@ -74,11 +75,13 @@ class EventRecorder( QObject ):
             else:
                 # Perform a full garbage collection before determining the name of this widget
                 gc.collect()
+                if sip.isdeleted(watched):
+                    return
                 timestamp_in_seconds = self._timer.seconds()
                 objname = str(get_fully_qualified_name(watched))
                 if not ( self._ignore_parent_events and objname.startswith(self._parent_name) ):
                     self._captured_events.append( (eventstr, objname, timestamp_in_seconds) )
-        return False
+        return
 
     def insertComment(self, comment):
         self._captured_events.append( (comment, "comment", None) )

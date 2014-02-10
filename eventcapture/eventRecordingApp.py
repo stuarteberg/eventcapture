@@ -1,4 +1,5 @@
 import functools
+import sip
 from PyQt4.QtCore import pyqtSignal, Qt, QEvent, QTimer
 from PyQt4.QtGui import QApplication, QWidget, QMainWindow
 
@@ -26,8 +27,11 @@ class EventRecordingApp(QApplication):
         self.recorder_control_window = EventRecorderGui()
     
     def notify(self, receiver, event):
-        f = self._notify
+        if sip.isdeleted(receiver):
+            return False
         
+        f = self._notify
+
         # Whenever a new object is created and added to a parent, 
         #  we update the special unique_child_index attribute for that new object and any siblings.
         # Note: Since this is sent by the event system, there may be several queued up "child polished" events to be processed at once.
@@ -40,7 +44,13 @@ class EventRecordingApp(QApplication):
             child = event.child()
             remove_unique_child_index(child)
 
+        # If gc is collected while this signal is handled,
+        #  this object may no longer be valid.
+        # If that's the case, this event is not important, anyway
         self.aboutToNotify.emit(receiver, event)
+        if sip.isdeleted(receiver):
+            return False
+
         return f( receiver, event )
 
     def getMainWindow(self):
