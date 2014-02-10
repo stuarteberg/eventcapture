@@ -1,6 +1,6 @@
 import functools
 import sip
-from PyQt4.QtCore import pyqtSignal, Qt, QEvent, QTimer
+from PyQt4.QtCore import pyqtSignal, Qt, QEvent, QTimer, QT_VERSION_STR
 from PyQt4.QtGui import QApplication, QWidget, QMainWindow
 
 from objectNameUtils import assign_unique_child_index, remove_unique_child_index
@@ -16,6 +16,14 @@ class EventRecordingApp(QApplication):
     def __init__(self, *args, **kwargs):
         super(EventRecordingApp, self).__init__(*args, **kwargs)
         self._notify = functools.partial( QApplication.notify, QApplication.instance() )
+
+        # Since playback speed can be laggy (especially if running from a VM),
+        #  we want to give a generous double-click timeout.
+        # Unfortunately, this API is NOT supported in Qt5!
+        # When we upgrade from Qt4, we'll have to find some alternative solution...
+        assert QT_VERSION_STR.startswith('4'), "Qt5 does not allow use to use setDoubleClickInterval().  Recordings may not playback well."
+        self.setDoubleClickInterval(1000)
+        self.setStartDragTime(1000)
 
         # Lazy import here because there can be subtle problems 
         #  if this is imported BEFORE the app is created.
