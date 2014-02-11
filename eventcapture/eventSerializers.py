@@ -84,7 +84,7 @@ def QCloseEvent_to_string(closeEvent):
 def QEvent_to_string(event):
     type_name = get_event_type_name( event.type() )
     # Some event types are not exposed in pyqt as symbols
-    if not hasattr( QEvent, type_name ):
+    if not hasattr( QEvent, type_name.split('.')[1] ):
         type_name = int(event.type())
     return "PyQt4.QtCore.QEvent({})".format( type_name )
 
