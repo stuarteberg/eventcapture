@@ -1,7 +1,7 @@
 import functools
 import sip
 from PyQt4.QtCore import pyqtSignal, Qt, QEvent, QTimer, QT_VERSION_STR
-from PyQt4.QtGui import QApplication, QWidget, QMainWindow
+from PyQt4.QtGui import QApplication, QWidget, QMainWindow, QLineEdit
 
 from objectNameUtils import assign_unique_child_index, remove_unique_child_index
 
@@ -39,6 +39,11 @@ class EventRecordingApp(QApplication):
             return False
         
         f = self._notify
+
+        # Special hack: Remove completers from all QLineEdits.
+        # They tend to cause timing issues during playback.
+        if isinstance(receiver, QLineEdit):
+            receiver.setCompleter(None)
 
         # Whenever a new object is created and added to a parent, 
         #  we update the special unique_child_index attribute for that new object and any siblings.
