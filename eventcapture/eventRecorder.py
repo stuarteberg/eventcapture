@@ -39,6 +39,16 @@ class EventRecorder( QObject ):
         assert isinstance(QApplication.instance(), EventRecordingApp)
         QApplication.instance().aboutToNotify.connect( self.handleApplicationEvent )
 
+        # We keep track of which mouse buttons are currently checked in this set.
+        # If we see a Release event for a button we think isn't pressed, then we missed something.
+        # In that case, we simply generate a fake Press event.  (See below.)
+        # This fixes a problem that can occur in Linux:
+        # If the application doesn't have focus, but the user clicks a button in the window anyway,
+        # the window is activated and the button works normally during recording.  
+        # However, the "press" event is not recorded, and the button is never activated during playback.
+        # This hack allows us to recognize that we missed the click and generate it anyway.
+        self._current_observed_mouse_presses = set()
+
     def handleApplicationEvent(self, receiver, event):
         if not self.paused:
             self.captureEvent(receiver, event)
@@ -80,6 +90,17 @@ class EventRecorder( QObject ):
                 timestamp_in_seconds = self._timer.seconds()
                 objname = str(get_fully_qualified_name(watched))
                 if not ( self._ignore_parent_events and objname.startswith(self._parent_name) ):
+                    # Special case: If this is a MouseRelease and we somehow missed the MousePress,
+                    #               then create a "synthetic" MousePress and insert it immediately before the release
+                    if event.type() == QEvent.MouseButtonPress or event.type() == QEvent.MouseButtonDblClick:
+                        self._current_observed_mouse_presses.add( event.button() )
+                    elif event.type() == QEvent.MouseButtonRelease:
+                        try:
+                            self._current_observed_mouse_presses.remove( event.button() )
+                        except KeyError:
+                            synthetic_press_event = QMouseEvent( QEvent.MouseButtonPress, event.pos(), event.globalPos(), event.button(), event.buttons(), event.modifiers() )
+                            synthetic_eventstr = event_to_string(synthetic_press_event)
+                            self._captured_events.append( (synthetic_eventstr, objname, timestamp_in_seconds) )
                     self._captured_events.append( (eventstr, objname, timestamp_in_seconds) )
         return
 
